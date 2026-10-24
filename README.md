@@ -1,5 +1,5 @@
-# WLP4 (Waterloo Language Plus Pointers Plus Procedures) Compiler and ARM64 Assembler
+# WLP64: WLP4 Compiler, ARM64 Assembler, and CPU Emulator
 
-This repository contains implementations of a WLP4 (Subset of C/C++) compiler and an ARM64 assembler, written in C++.
+This repo contains implementations for a WLP4 (Subset of C/C++) compiler, an ARM64 assembler, and a CPU emulator, all written in C++17.
 
-The WLP4 compiler translates WLP4 source code into ARM64 assembly (still in developemnt), while the ARM64 assembler (still in development) converts assembly instructions into executable machine code.
+(Still in development).

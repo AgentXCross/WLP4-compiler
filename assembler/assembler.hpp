@@ -49,9 +49,10 @@ void require(bool condition, const std::string &message) {
  * Also supports the .8byte directive
  * 
  * Contains the instruction encoding tables, tokenizer DFA, and
- * functionality required for assembly. Source code, tokens, and
- * generated machine code are processed locally and are not
- * stored as instance members.
+ * functionality required for assembly. 
+ * 
+ * Source code, tokens, and generated machine code are 
+ * processed locally and are not stored as instance members.
 */
 class ARM64Assembler {
 private:
