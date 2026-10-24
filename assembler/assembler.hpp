@@ -4,29 +4,10 @@
 #include <cstddef>
 #include <string>
 #include <vector>
-#include <unordered_set>
 #include <map>
 #include <stdexcept>
 
-// For DFA
-struct State {
-    std::string name;
-    bool accepting = false;
-};
-
-struct Transition {
-    std::string from_state;
-    std::vector<char> symbols;
-    std::string to_state;
-};
-
-struct DFA {
-    std::vector<char> alphabet;
-    std::vector<State> states;
-    std::vector<Transition> transitions;
-};
-
-enum TokenType {
+enum class TokenType {
     NONE,
     DOTID,
     LABEL,
@@ -47,20 +28,14 @@ struct Token {
     std::string lexeme;
 };
 
-
-void format_error(const std::string &message)
-{
+void format_error(const std::string &message) {
     throw std::runtime_error(message);
 }
 
-void require(
-    bool condition,
-    const std::string &message
-) {
-    if (!condition) {
-        format_error(message);
-    }
+void require(bool condition, const std::string &message) {
+    if (!condition) format_error(message);
 }
+
 
 /**
  * @brief Assembles ARM64 assembly into little-endian machine code.
@@ -80,72 +55,48 @@ void require(
 */
 class ARM64Assembler {
 private:
-    DFA tokenizer_dfa;
-
-    // condition stores the valid b.cond conditions and their binary encodings
-    const std::map<std::string, int> condition_codes{
-            {"eq", 0b00000},
-            {"ne", 0b00001},
-            {"hs", 0b00010}, 
-            {"lo", 0b00011}, 
-            {"hi", 0b01000}, 
-            {"ls", 0b01001}, 
-            {"ge", 0b01010}, 
-            {"gt", 0b01100}, 
-            {"le", 0b01101}, 
-            {"lt", 0b01011}
-    };
-
-    /**
-     * @brief Given a general-purpose register as a string (x30), returns the number portion as an integer
-    */
-    int read_reg(const std::string &reg) {
-        int number{std::stoi(reg.substr(1))};
-
-        require(
-            number >= 0 && number <= 30,
-            "ERROR: Invalid register"
-        );
-
-        return number;
-    }
-
-    // Constructs the DFA used for assembly tokenization.
-    DFA create_tokenizer_dfa();
-
-    // Returns the next state for a given input character.
-    State delta(const State &current, char symbol) const;
-
-    // Checks whether a state is accepting.
-    bool is_state_accepting(const std::string &state_name) const;
-
-    // Converts an accepting state into a TokenType.
-    TokenType return_kind(const std::string &state_name) const;
-
-public: 
-    // Constructor method
-    ARM64Assembler() : tokenizer_dfa{create_tokenizer_dfa()} {}
-
     /** 
+     * ASSIGNMENT 1
      * @brief compile_line returns true if the instruction is encoded properly into word, false otherwise
      * Only used for instructions, not for the .8byte directive.
      * The .8byte directive is handled separately in the assembler main function.
      * @param word Compiled instruction is put into word
      * @param instruction String of the instruction we're encoding (e.g. "add", "sub")
-     * @param one The first argument of an instruction
-     * @param two The second argument of an instruction (optional depending on instruction)
-     * @param three The third argument of an instruction (optional depending on instruction)
+     * @param first The first argument of an instruction
+     * @param second The second argument of an instruction (optional depending on instruction)
+     * @param third The third argument of an instruction (optional depending on instruction)
      * @return true if compiled, false otherwise
     */
     bool compile_line(
-        u_int32_t &word,
+        std::uint32_t &word,
         const std::string &instruction,
-        std::size_t one,
-        std::size_t two = 0,
-        std::size_t three = 0
+        std::int32_t first,
+        std::int32_t second = 0,
+        std::int32_t third = 0
     );
 
     /**
+     * ASSEGINMENT 2
+     * @brief Tokenizes one line of ARM64 assembly.
+     * @param line The raw assembly line.
+     * @return The tokens, including a trailing NEWLINE token for each line.
+     */
+    std::vector<Token> tokenize_line(const std::string &line);
+
+    /**
+     * ASSIGNMENT 2
+     * @brief Builds the symbol table mapping each label to an address
+     * Assumes the program starts at address 0x00
+     * 
+     * @param lines vector of all assembly lines
+     * @return Symbol table as std::map<std::string, std::uint64_t> 
+     */
+    std::map<std::string, std::uint64_t> build_symbol_table(
+        const std::vector<std::vector<Token>> &lines
+    );
+
+    /**
+     * ASSIGNMENT 3
      * @brief resolve_and_validate_line resolves labels and validates a line of assembly
      * All HEXINT and Label usages are replaced with INT
      * Does not adjust immediate values for ldr, b, b.cond since compile_line handles it.
@@ -163,16 +114,10 @@ public:
         u_int64_t current_address
     );
 
-    /**
-     * @brief Tokenizes one line of ARM64 assembly.
-     * @param line The raw assembly line.
-     * @return The tokens, including a trailing NEWLINE token for each line.
-     */
-    std::vector<Token> tokenize_line(const std::string &line);
-
+public: 
     /**
      * @brief Assembles an entire ARM64 assembly program. 
-              Calls (in this order) tokenize_line, resolve_and_validate_line, compile_line
+              For each line, calls (in this order) tokenize_line, build_symbol_table, resolve_and_validate_line, compile_line
      * @param source The assembly source code.
      * @return The resulting little-endian machine code.
      */
