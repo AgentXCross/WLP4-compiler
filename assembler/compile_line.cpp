@@ -1,7 +1,5 @@
 #include "assembler.hpp"
 
-#include <string>
-
 
 static const std::map<std::string, std::uint32_t> condition_codes{
         {"eq", 0b00000},
@@ -48,8 +46,8 @@ bool ARM64Assembler::compile_line(
 
     std::string opcode_key{instruction};
 
-    if (opcode_key.length() > 3 &&
-        opcode_key[0] == 'b' && opcode_key[1] == 'b.'
+    if (opcode_key.length() == 4 &&
+        opcode_key[0] == 'b' && opcode_key[1] == '.'
     ) {
         opcode_key = "b.cond";
     }
@@ -63,12 +61,103 @@ bool ARM64Assembler::compile_line(
 
     if (instruction == "add" || instruction == "sub" || instruction == "mul" ||
         instruction == "smulh" || instruction == "umulh" || instruction == "sdiv" ||
-        instruction == "udiv" || instruction == "sdiv"
+        instruction == "udiv"
     ) {
         std::int32_t xd{first}, xn{second}, xm{third};
 
         opcode_and_operands = opcodes.at(opcode_key);
         word = (opcode_and_operands) | (xm << 16) | (xn << 5) | (xd);
+    } else if (instruction == "cmp") {
+        std::int32_t xn{first}, xm{second};
+
+        opcode_and_operands = opcodes.at(opcode_key);
+        word = (opcode_and_operands) | (xm << 16) | (xn << 5);
+    } else if (instruction == "br" || instruction == "blr") {
+        std::int32_t xn{first};
+
+        opcode_and_operands = opcodes.at(opcode_key);
+        word = (opcode_and_operands) | (xn << 5);
+    } else if (instruction == "ldur" || instruction == "stur") {
+        std::int32_t xd{first}, xn{second}, immediate{third};
+
+        if (immediate > 255 || immediate < -256) {
+            format_error("ERROR: Invalid immediate value for ldur or stur");
+            return false;
+        }
+
+        immediate = immediate & 0x1FF; // For negative immediates, 0x1FF is nine 1's
+        
+        opcode_and_operands = opcodes.at(opcode_key);
+        word = (opcode_and_operands) | (immediate << 12) | (xn << 5) | (xd);
+    } else if (instruction == "ldr") {
+        std::int32_t xd{first}, immediate{second};
+        if (immediate % 4 != 0) {
+            format_error("ERROR: Immediate must be divisible by 4 for ldr");
+            return false;
+        }
+
+        immediate /= 4;
+
+        if (immediate > 262143 || immediate < -262144) {
+            format_error("ERROR: Invalid immediate value for ldr");
+            return false;
+        }
+
+        immediate = immediate & 0x7FFFF; // For negative immediates, 0x7FFFF is nineteen 1's
+
+        opcode_and_operands = opcodes.at(opcode_key);
+        word = (opcode_and_operands) | (immediate << 5) | (xd);
+    } else if (instruction == "b") {
+        std::int32_t immediate{first};
+        if (immediate % 4 != 0) {
+            format_error("ERROR: Immediate must be divisible by 4 for b");
+            return false;
+        }
+
+        immediate /= 4;
+
+        if (immediate > 33554431 || immediate < -33554432) {
+            format_error("ERROR: Invalid immediate value for b");
+            return false;
+        }
+
+        immediate = immediate & 0x3FFFFFF; // For negative immediates, 0x3FFFFFF is twenty-six 0's
+        
+        opcode_and_operands = opcodes.at(opcode_key);
+        word = (opcode_and_operands) | (immediate);
+    } else if (opcode_key == "b.cond") {
+        std::string cond_code_str{instruction.substr(2, 2)};
+
+        std::int32_t immediate{first};
+        if (immediate % 4 != 0) {
+            format_error("ERROR: Immediate must be divisible by 4 for b.cond");
+            return false;
+        }
+
+        immediate /= 4;
+
+        if (immediate > 262143 || immediate < -262144) {
+            format_error("ERROR: Invalid immediate value for b.cond");
+            return false;
+        }
+
+        immediate = immediate & 0x7FFFF; // For negative immediates, 0x7FFFF is nineteen 0's
+
+        opcode_and_operands = opcodes.at(opcode_key);
+
+        auto cond_it{condition_codes.find(cond_code_str)};
+
+        if (cond_it == condition_codes.end()) {
+            format_error("ERROR: Invalid condition code for b.cond");
+            return false;
+        }
+
+        std::uint32_t cond_code{cond_it->second};
+
+        word = (opcode_and_operands) | (immediate << 5) | (cond_code);
+    } else {
+        return false;
     }
 
+    return true;
 }
