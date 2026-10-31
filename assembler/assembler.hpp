@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <stdexcept>
+#include <utility>
 
 enum class TokenType {
     NONE,
@@ -51,13 +52,12 @@ void require(bool condition, const std::string &message) {
  *  b, b.cond -> cond = {eq, ne, hs, lo, hi, ls, ge, gt, le, lt}
  * Also supports the .8byte directive
  * 
- * Contains the instruction encoding tables, tokenizer DFA, and
- * functionality required for assembly. 
- * 
- * Source code, tokens, and generated machine code are 
- * processed locally and are not stored as instance members.
+ * Only provides functionaility. 
 */
 class ARM64Assembler {
+
+// All private methods act on a single line of Assembly.
+// The public assemble() method then calls the private methods on each line.
 private:
     /** 
      * ASSIGNMENT 1
@@ -71,7 +71,7 @@ private:
      * @param third The third argument of an instruction (optional depending on instruction)
      * @return true if compiled, false otherwise
     */
-    bool compile_line(
+    static bool compile_line(
         std::uint32_t &word,
         const std::string &instruction,
         std::int32_t first,
@@ -81,11 +81,11 @@ private:
 
     /**
      * ASSEGINMENT 2
-     * @brief Tokenizes one line of ARM64 assembly.
+     * @brief Tokenizes one line of ARM64 assembly by applying Simplified Maximal Munch.
      * @param line The raw assembly line.
      * @return The tokens, including a trailing NEWLINE token for each line.
      */
-    std::vector<Token> tokenize_line(const std::string &line);
+    static std::vector<Token> tokenize_line(const std::string &line);
 
     /**
      * ASSIGNMENT 2
@@ -95,7 +95,7 @@ private:
      * @param lines vector of all assembly lines
      * @return Symbol table as std::map<std::string, std::uint64_t> 
      */
-    std::map<std::string, std::uint64_t> build_symbol_table(
+    static std::map<std::string, std::uint64_t> build_symbol_table(
         const std::vector<std::vector<Token>> &lines
     );
 
@@ -112,18 +112,20 @@ private:
      * b.cond is tokenized as 2 separate tokens: {ID, b}, {DOTID, .cond}
      * but is them merged into one token {ID, b.cond}
     */
-    void resolve_and_validate_line(
+    static void resolve_and_validate_line(
         std::vector<Token> &line,
         const std::map<std::string, std::uint64_t> &labels,
-        u_int64_t current_address
+        std::uint64_t current_address
     );
 
 public: 
+    ARM64Assembler() = delete;
+
     /**
      * @brief Assembles an entire ARM64 assembly program. 
               For each line, calls (in this order) tokenize_line, build_symbol_table, resolve_and_validate_line, compile_line
      * @param source The assembly source code.
      * @return The resulting little-endian machine code.
      */
-    std::vector<std::uint8_t> assemble(const std::string &source);
+    static std::vector<std::uint8_t> assemble(const std::string &source);
 };

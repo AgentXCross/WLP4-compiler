@@ -25,6 +25,7 @@ struct DFA {
     std::vector<char> alphabet;
     std::vector<State> states;
     std::vector<Transition> transitions;
+    std::string initial_state;
 };
 
 

@@ -64,6 +64,12 @@ bool is_range(const std::string s) {
     return s.length() == 3 && s[1] == '-';
 }
 
+std::pair<char, char> range_start_and_end(const std::string s) {
+    if (!is_range(s)) format_error("ERROR: Can't call range_start_and_end on a string that isn't a range");
+
+    return {s[0], s[2]};
+}
+
 
 /**
  * @brief delta(curr_state, symbol) returns the next state
@@ -98,7 +104,9 @@ static State delta(const State &curr_state, const char symbol, const DFA &dfa) {
     return next_state;
 }
 
-
+/**
+ * @brief Constructs the DFA (Deterministic Finite Automaton) to recognize ARM64 tokens
+ */
 static DFA construct_dfa() {
     std::istringstream iss{ASSEMBLY_DFA};
     std::string dfa_line{};
@@ -108,19 +116,89 @@ static DFA construct_dfa() {
 
     while (iss >> dfa_line) {
         if (dfa_line == STATES) break;
-        else {
-            if (is_char(dfa_line)) {
-                alphabet.push_back(dfa_line[0]);
-            } else if (is_range(dfa_line)) {
-                for (int i{dfa_line[0]}; i <= dfa_line[2]; ++i) {
-                    alphabet.push_back(i);
-                }
+
+        if (is_char(dfa_line)) {
+            alphabet.push_back(dfa_line[0]);
+        } else if (is_range(dfa_line)) {
+            std::pair<char, char> range{range_start_and_end(dfa_line)};
+            for (char i{range.first}; i <= range.second; ++i) {
+                alphabet.push_back(i);
             }
         }
     }
 
     std::getline(iss, dfa_line); // Skip the newline after .STATES
-    
+
+    std::vector<State> states{};
+    std::string initial_state{};
+
+    while (iss >> dfa_line) {
+        if (dfa_line == TRANSITIONS) break;
+
+        bool accepting{false};
+
+        if (dfa_line.back() == '!' && !is_char(dfa_line)) {
+            accepting = true;
+            dfa_line.pop_back();
+        }
+
+        if (initial_state == "") {
+            if (accepting == true) {
+                format_error("ERROR: Initial state can't be accepting");
+            }
+
+            initial_state = dfa_line;
+        }
+
+        if (accepting) {
+            states.push_back({dfa_line, accepting});
+        } else {
+            states.push_back({dfa_line, accepting});
+        }
+    }
+
+    std::getline(iss, dfa_line); // Skip the newline after .TRANSITIONS
+
+    std::vector<Transition> transitions{};
+
+    while (iss >> dfa_line) {
+        if (dfa_line == INPUT) break;
+
+        std::string from_state{}, symbols{}, to_state{};
+
+        std::istringstream iss{dfa_line};
+        std::string s{};
+        std::vector<std::string> line_vec{};
+
+        while (iss >> s) {
+            line_vec.push_back(s);
+        }
+
+        from_state = line_vec.front();
+        to_state = line_vec.back();
+
+        for (std::size_t i{1}; i < line_vec.size() - 1; ++i) {
+            if (is_char(line_vec[i])) {
+                symbols += line_vec[i];
+            } else if (is_range(line_vec[i])) {
+                std::pair<char, char> range{range_start_and_end(line_vec[i])};
+
+                for (char c{range.first}; c <= range.second; ++c) {
+                    symbols += c;
+                }
+            } else {
+                format_error("ERROR: Invalid transition line in DFA");
+            }
+        }
+
+        transitions.push_back({
+            from_state,
+            std::vector<char>{symbols.begin(), symbols.end()}, 
+            to_state
+        });
+    }
+
+    return DFA{alphabet, states, transitions, initial_state};
 }
 
 
