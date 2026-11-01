@@ -114,7 +114,7 @@ static DFA construct_dfa() {
 
     std::vector<char> alphabet{};
 
-    while (iss >> dfa_line) {
+    while (std::getline(iss, dfa_line)) {
         if (dfa_line == STATES) break;
 
         if (is_char(dfa_line)) {
@@ -127,12 +127,10 @@ static DFA construct_dfa() {
         }
     }
 
-    std::getline(iss, dfa_line); // Skip the newline after .STATES
-
     std::vector<State> states{};
     std::string initial_state{};
 
-    while (iss >> dfa_line) {
+    while (std::getline(iss, dfa_line)) {
         if (dfa_line == TRANSITIONS) break;
 
         bool accepting{false};
@@ -150,18 +148,12 @@ static DFA construct_dfa() {
             initial_state = dfa_line;
         }
 
-        if (accepting) {
-            states.push_back({dfa_line, accepting});
-        } else {
-            states.push_back({dfa_line, accepting});
-        }
+        states.push_back({dfa_line, accepting});
     }
-
-    std::getline(iss, dfa_line); // Skip the newline after .TRANSITIONS
 
     std::vector<Transition> transitions{};
 
-    while (iss >> dfa_line) {
+    while (std::getline(iss, dfa_line)) {
         if (dfa_line == INPUT) break;
 
         std::string from_state{}, symbols{}, to_state{};
@@ -202,6 +194,50 @@ static DFA construct_dfa() {
 }
 
 
-std::vector<Token> tokenize_line(const std::string &line) {
+std::vector<Token> ARM64Assembler::tokenize_line(const std::string &line) {
+    const std::size_t k{line.length()};
 
+    static const DFA dfa{construct_dfa()};
+
+    State curr{dfa.initial_state, false, false};
+
+    std::string lexeme{};
+
+    std::vector<Token> tokens{};
+
+    for (std::size_t i{0}; i <= k; ) {
+        // skip preceding whitespaces
+        if (i < k && curr.state_name == dfa.initial_state && line[i] == ' ') {
+            ++i;
+            continue;
+        }
+
+        State next{};
+
+        if (i == k) {
+            if (!lexeme.empty()) {
+                require(curr.accepting, "ERROR: Invalid assembly line");
+                tokens.push_back({return_kind(curr.state_name), lexeme});
+            }
+
+            break;
+        } else next = delta(curr, line[i], dfa);
+
+        if (next.error == true) {
+            require(curr.accepting, "ERROR: Invalid assembly line");
+
+            tokens.push_back({return_kind(curr.state_name), lexeme});
+            
+            lexeme = "";
+            curr.state_name = dfa.initial_state;
+            curr.error = false;
+            curr.accepting = false;
+        } else {
+            lexeme += line[i];
+            curr = next;
+            ++i;
+        }
+    }
+
+    return tokens;
 }
